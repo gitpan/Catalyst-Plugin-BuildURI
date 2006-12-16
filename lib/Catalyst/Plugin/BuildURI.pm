@@ -3,24 +3,37 @@ package Catalyst::Plugin::BuildURI;
 use strict;
 use warnings;
 
-our $VERSION = '0.0.1';
+our $VERSION = '0.0.2';
 
 use URI;
+use Catalyst::Exception;
 
 sub build_uri {
     my $c = shift;
-    my ($namespace, $action_name, $args, $query, $base_uri) = @_;
-    
-    my $action = $c->dispatcher->get_action($action_name, $namespace);
-    my $path = $c->dispatcher->uri_for_action($action, $args);
+    my ( $namespace, $action_name, $args, $query, $base_uri ) = @_;
+
+    my $action = $c->dispatcher->get_action( $action_name, $namespace );
+    Catalyst::Exception->throw("No such action: $action_name, $namespace")
+      unless ($action);
+
+		$args = [$args] if(defined $args && !ref $args);
+
+		### for Regex, LocalRegex
+    my $path = $c->dispatcher->uri_for_action( $action, $args );
+
+		unless ($path) { ### for other DispatchTypes
+        $path ||= $c->dispatcher->uri_for_action($action);
+				$path .= ('/' . join( "/", @$args )) if (@$args);
+		}
 
     my $uri = ($base_uri) ? URI->new($base_uri) : $c->request->uri->clone;
 
     $uri->path($path);
-    $uri->port(undef) if ($uri->port && $uri->port == $uri->default_port);
+    $uri->port(undef) if ( $uri->port && $uri->port == $uri->default_port );
 
-    if (my $ref_type = ref $query) {
-        ($ref_type eq 'ARRAY' || $ref_type eq 'HASH') && $uri->query_form($query);
+    if ( my $ref_type = ref $query ) {
+        ( $ref_type eq 'ARRAY' || $ref_type eq 'HASH' )
+          && $uri->query_form($query);
     }
     else {
         $query && $uri->query($query);
@@ -31,11 +44,12 @@ sub build_uri {
 
 sub build_uri_by_label {
     my $c = shift;
-    my ($namespace, $action_name, $args, $query, $label) = @_;
-    
-    my $base_uri = $c->config->{build_uri}{$label} || $c->request->uri->as_string;
+    my ( $namespace, $action_name, $args, $query, $label ) = @_;
 
-    $c->build_uri($namespace, $action_name, $args, $query, $base_uri);
+    my $base_uri = $c->config->{build_uri}{$label}
+      || $c->request->uri->as_string;
+
+    $c->build_uri( $namespace, $action_name, $args, $query, $base_uri );
 }
 
 1;
