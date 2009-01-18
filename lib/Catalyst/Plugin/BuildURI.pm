@@ -3,9 +3,10 @@ package Catalyst::Plugin::BuildURI;
 use strict;
 use warnings;
 
-our $VERSION = '0.0.2';
+our $VERSION = '0.1';
 
 use URI;
+use URI::Escape qw(uri_escape_utf8);
 use Catalyst::Exception;
 
 sub build_uri {
@@ -17,6 +18,7 @@ sub build_uri {
       unless ($action);
 
 		$args = [$args] if(defined $args && !ref $args);
+    $args = [ map { uri_escape_utf8($_) } @$args ];
 
 		### for Regex, LocalRegex
     my $path = $c->dispatcher->uri_for_action( $action, $args );
@@ -26,9 +28,16 @@ sub build_uri {
 				$path .= ('/' . join( "/", @$args )) if (@$args);
 		}
 
-    my $uri = ($base_uri) ? URI->new($base_uri) : $c->request->uri->clone;
+    my $uri = ($base_uri) ? URI->new($base_uri) : $c->request->base->clone;
 
-    $uri->path($path);
+    if ( my $base_path = $uri->path ) {
+        $base_path .= $path;
+        $base_path =~ s!/+!/!g;
+        $uri->path($base_path);
+    }
+    else {
+        $uri->path($path);
+    }
     $uri->port(undef) if ( $uri->port && $uri->port == $uri->default_port );
 
     if ( my $ref_type = ref $query ) {

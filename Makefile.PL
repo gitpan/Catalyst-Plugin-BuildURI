@@ -9,6 +9,7 @@ license('perl');
 requires('Catalyst');
 requires('Catalyst::Exception');
 requires('URI');
+requires('URI::Escape');
 
 build_requires('Test::More');
 
